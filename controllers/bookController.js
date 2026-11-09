@@ -3,8 +3,32 @@ const Book = require("../models/Book");
 const Author = require("../models/Author");
 
 
+const validateBook = (data) => {
+    if (data.price !== undefined &&
+        (data.price === null || typeof data.price !== "number" ||
+            !Number.isFinite(data.price) || data.price <= 0)) {
+        return "Price must be greater than zero";
+    }
+
+    if (data.publishedYear !== undefined &&
+        (data.publishedYear === null ||
+            !Number.isInteger(data.publishedYear) ||
+            data.publishedYear < 1450 ||
+            data.publishedYear > new Date().getFullYear())) {
+        return "Publication year must be between 1450 and the current year";
+    }
+
+    return null;
+};
+
+
 exports.createBook = async (req, res) => {
     try {
+        const error = validateBook(req.body);
+
+        if (error) {
+            return res.status(422).json({ message: error });
+        }
         const { title, author } = req.body;
 
         const authorExists = await Author.findById(author);
@@ -57,6 +81,12 @@ exports.updateBook = async (req, res) => {
 
         if (!book) {
             return res.status(404).json({ message: "Book not found" });
+        }
+
+        const error = validateBook(req.body);
+
+        if (error) {
+            return res.status(422).json({ message: error });
         }
 
         const author = req.body.author || book.author;
