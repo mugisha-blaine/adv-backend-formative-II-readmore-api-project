@@ -8,5 +8,6 @@ router.get("/", authorController.getAuthors);
 router.get("/:id", authorController.getAuthor);
 router.put("/:id", authorController.updateAuthor);
 router.delete("/:id", authorController.deleteAuthor);
+router.get("/:id/books", authorController.getAuthorBooks);
 
 module.exports = router;
