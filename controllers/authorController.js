@@ -49,17 +49,31 @@ exports.updateAuthor = async (req, res) => {
     }
 };
 
+
 exports.deleteAuthor = async (req, res) => {
     try {
-        const author = await Author.findByIdAndDelete(req.params.id);
+        const author = await Author.findById(req.params.id);
+
         if (!author) {
             return res.status(404).json({ message: "Author not found" });
         }
+
+        const hasBooks = await Book.exists({ author: req.params.id });
+
+        if (hasBooks) {
+            return res.status(409).json({
+                message: "Cannot delete author with existing books"
+            });
+        }
+
+        await Author.findByIdAndDelete(req.params.id);
+
         res.json({ message: "Author deleted successfully" });
     } catch (error) {
         res.status(400).json({ message: error.message });
     }
 };
+
 
 
 exports.getAuthorBooks = async (req, res) => {
