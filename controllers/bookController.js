@@ -1,14 +1,33 @@
 
 const Book = require("../models/Book");
+const Author = require("../models/Author");
+
 
 exports.createBook = async (req, res) => {
     try {
+        const { title, author } = req.body;
+
+        const authorExists = await Author.findById(author);
+        if (!authorExists) {
+            return res.status(400).json({ message: "Author does not exist" });
+        }
+
+        const duplicate = await Book.findOne({
+            author,
+            title: { $regex: `^${title}$`, $options: "i" }
+        });
+
+        if (duplicate) {
+            return res.status(409).json({ message: "Book title already exists for this author" });
+        }
+
         const book = await Book.create(req.body);
         res.status(201).json(book);
     } catch (error) {
         res.status(400).json({ message: error.message });
     }
 };
+
 
 exports.getBooks = async (req, res) => {
     try {
@@ -31,21 +50,45 @@ exports.getBook = async (req, res) => {
     }
 };
 
+
 exports.updateBook = async (req, res) => {
     try {
-        const book = await Book.findByIdAndUpdate(
+        const book = await Book.findById(req.params.id);
+
+        if (!book) {
+            return res.status(404).json({ message: "Book not found" });
+        }
+
+        const author = req.body.author || book.author;
+        const title = req.body.title || book.title;
+
+        const authorExists = await Author.findById(author);
+        if (!authorExists) {
+            return res.status(400).json({ message: "Author does not exist" });
+        }
+
+        const duplicate = await Book.findOne({
+            author,
+            title: { $regex: `^${title}$`, $options: "i" },
+            _id: { $ne: book._id }
+        });
+
+        if (duplicate) {
+            return res.status(409).json({ message: "Book title already exists for this author" });
+        }
+
+        const updatedBook = await Book.findByIdAndUpdate(
             req.params.id,
             req.body,
             { new: true, runValidators: true }
         );
-        if (!book) {
-            return res.status(404).json({ message: "Book not found" });
-        }
-        res.json(book);
+
+        res.json(updatedBook);
     } catch (error) {
         res.status(400).json({ message: error.message });
     }
 };
+
 
 exports.deleteBook = async (req, res) => {
     try {
