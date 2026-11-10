@@ -56,16 +56,6 @@ exports.createBook = async (req, res) => {
 
 exports.getBooks = async (req, res) => {
     try {
-        const books = await Book.find().populate("author");
-        res.json(books);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-
-exports.getBooks = async (req, res) => {
-    try {
         const { genre, author, minPrice, maxPrice, search, sort, order } = req.query;
         const filter = {};
 
@@ -121,11 +111,27 @@ exports.getBooks = async (req, res) => {
 
         const sortOption = sort ? { [sort]: order === "desc" ? -1 : 1 } : {};
 
+
+        const page = Number(req.query.page || 1);
+        const limit = Number(req.query.limit || 10);
+
+        if (!Number.isInteger(page) || page < 1 ||
+            !Number.isInteger(limit) || limit < 1) {
+            return res.status(400).json({
+                message: "Page and limit must be positive integers"
+            });
+        }
+
+        const total = await Book.countDocuments(filter);
+
         const books = await Book.find(filter)
             .populate("author")
-            .sort(sortOption);
+            .sort(sortOption)
+            .skip((page - 1) * limit)
+            .limit(limit);
 
-        res.json(books);
+        res.json({ page, limit, total, results: books });
+
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

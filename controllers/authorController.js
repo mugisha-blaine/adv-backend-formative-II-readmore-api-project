@@ -91,3 +91,40 @@ exports.getAuthorBooks = async (req, res) => {
     }
 };
 
+
+exports.getAuthorStats = async (req, res) => {
+    try {
+        const author = await Author.findById(req.params.id);
+
+        if (!author) {
+            return res.status(404).json({ message: "Author not found" });
+        }
+
+        const books = await Book.find({ author: req.params.id });
+
+        const prices = books.map(book => book.price);
+        const total = prices.reduce((sum, price) => sum + price, 0);
+
+        const cheapest = books.length
+            ? books.reduce((a, b) => a.price <= b.price ? a : b)
+            : null;
+
+        const expensive = books.length
+            ? books.reduce((a, b) => a.price >= b.price ? a : b)
+            : null;
+
+        res.json({
+            author: author.name,
+            bookCount: books.length,
+            averagePrice: books.length
+                ? Number((total / books.length).toFixed(2))
+                : 0,
+            cheapestBook: cheapest ? cheapest.title : null,
+            mostExpensiveBook: expensive ? expensive.title : null
+        });
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+};
+
+
