@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 
 const Book = require("../models/Book");
 const Author = require("../models/Author");
@@ -62,17 +63,88 @@ exports.getBooks = async (req, res) => {
     }
 };
 
+
+exports.getBooks = async (req, res) => {
+    try {
+        const { genre, author, minPrice, maxPrice, search, sort, order } = req.query;
+        const filter = {};
+
+        // Filter by genre
+        if (genre) {
+            filter.genre = new RegExp(genre.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+        }
+
+        // Filter by author
+        if (author) {
+            if (!mongoose.isValidObjectId(author)) {
+                return res.status(400).json({ message: "Invalid author ID" });
+            }
+            filter.author = author;
+        }
+
+        // Validate price filters
+        if ([minPrice, maxPrice].some(value =>
+            value !== undefined && (String(value).trim() === "" ||
+                !Number.isFinite(Number(value)) || Number(value) < 0)
+        )) {
+            return res.status(400).json({ message: "Invalid price filter" });
+        }
+
+        if (minPrice !== undefined && maxPrice !== undefined &&
+            Number(minPrice) > Number(maxPrice)) {
+            return res.status(400).json({
+                message: "minPrice cannot be greater than maxPrice"
+            });
+        }
+
+        if (minPrice !== undefined || maxPrice !== undefined) {
+            filter.price = {};
+            if (minPrice !== undefined) filter.price.$gte = Number(minPrice);
+            if (maxPrice !== undefined) filter.price.$lte = Number(maxPrice);
+        }
+
+        // Search by title
+        if (search) {
+            filter.title = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+        }
+
+        // Sort results
+        const allowedSort = ["price", "title", "publishedYear"];
+
+        if (sort && !allowedSort.includes(sort)) {
+            return res.status(400).json({ message: "Invalid sort field" });
+        }
+
+        if (order && !["asc", "desc"].includes(order)) {
+            return res.status(400).json({ message: "Invalid sort order" });
+        }
+
+        const sortOption = sort ? { [sort]: order === "desc" ? -1 : 1 } : {};
+
+        const books = await Book.find(filter)
+            .populate("author")
+            .sort(sortOption);
+
+        res.json(books);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 exports.getBook = async (req, res) => {
     try {
         const book = await Book.findById(req.params.id).populate("author");
+
         if (!book) {
             return res.status(404).json({ message: "Book not found" });
         }
+
         res.json(book);
     } catch (error) {
         res.status(400).json({ message: error.message });
     }
 };
+
 
 
 exports.updateBook = async (req, res) => {
